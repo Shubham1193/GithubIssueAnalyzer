@@ -16,29 +16,27 @@ try {
   console.error("[ChromaDB Init Error] Failed to initialize collection:", err.message);
   throw err;
 }
-// 
+ 
 export async function getExistingIdsForRepo(repo) {
   try {
     const collection = await collectionPromise;
     console.log(`[GetExistingIdsForRepo] Querying IDs for repo: ${repo}`);
-    // will retirn every thing
     const result = await collection.get({
       where: { repo: { $eq: repo } },
-      // include: ["ids"],
+      // include: ["ids"], // Explicitly include only IDs for efficiency
     });
     const existingIds = result.ids || [];
     console.log(`[GetExistingIdsForRepo] Found ${existingIds.length} existing IDs for repo: ${repo}`);
     return existingIds;
   } catch (err) {
     console.error(`[GetExistingIdsForRepo Error] Repo: ${repo}`, err.message);
-    if (err.message.includes("could not be found")) {
+    if (err.message.includes("could not be found") || err.message.includes("does not exist")) {
+      console.log(`[GetExistingIdsForRepo] No documents found for repo: ${repo}, returning empty array`);
       return [];
     }
     throw err;
   }
 }
-
-
 
 // List stored documents with pagination
 export async function listDocuments(page = 1, limit = 20) {
@@ -51,21 +49,32 @@ export async function listDocuments(page = 1, limit = 20) {
       include: ["metadatas", "documents", "embeddings"],
     });
 
+    if (!result.ids?.length) {
+      console.log("[ListDocuments] No documents found");
+      return { documents: [], total: 0, page, limit };
+    }
+
+    const total = await collection.count(); // Get total document count for accurate pagination
+    const documents = result.ids.map((id, i) => ({
+      id,
+      file: result.metadatas[i]?.file || "unknown",
+      repo: result.metadatas[i]?.repo || "unknown",
+      docId: result.metadatas[i]?.docId || id, // Use stored docId or fall back to id
+      summary: result.documents[i] || "No summary",
+      embedding: result.embeddings[i]?.slice(0, 10) || [], // Truncate for brevity
+    }));
+
+    console.log(`[ListDocuments] Returning ${documents.length} documents, total: ${total}`);
     return {
-      documents: result.ids.map((id, i) => ({
-        id,
-        file: result.metadatas[i]?.file || "unknown",
-        repo: result.metadatas[i]?.repo || "unknown",
-        summary: result.documents[i] || "No summary",
-        embedding: result.embeddings[i]?.slice(0, 10) || [],
-      })),
-      total: result.ids.length,
+      documents,
+      total,
       page,
       limit,
     };
   } catch (err) {
     console.error("[ListDocuments Error]", err.message);
-    if (err.message.includes("could not be found")) {
+    if (err.message.includes("could not be found") || err.message.includes("does not exist")) {
+      console.log("[ListDocuments] No documents or collection found, returning empty result");
       return { documents: [], total: 0, page, limit };
     }
     throw err;
@@ -80,8 +89,8 @@ export async function storeEmbeddings(docs) {
 
     // Validate and filter valid documents
     const validDocs = docs.filter((d) => {
-      if (!Array.isArray(d.embedding) || d.embedding.length === 0) {
-        console.warn(`[StoreEmbeddings] Skipping invalid embedding for ${d.file}`);
+      if (!d.docId || !Array.isArray(d.embedding) || d.embedding.length === 0) {
+        console.warn(`[StoreEmbeddings] Skipping invalid document for ${d.docId || d.file}`);
         return false;
       }
       return true;
@@ -93,8 +102,8 @@ export async function storeEmbeddings(docs) {
     }
 
     // Build document data
-    const ids = validDocs.map((d) => `${d.repo}::${d.file}`);
-    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo }));
+    const ids = validDocs.map((d) => d.docId); // Use docId from handleIssue
+    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo, docId: d.docId }));
     const documents = validDocs.map((d) => d.chunk);
     const embeddings = validDocs.map((d) => d.embedding);
 
@@ -106,7 +115,6 @@ export async function storeEmbeddings(docs) {
       console.log(`[StoreEmbeddings] Found ${existingIds.length} existing documents`);
     } catch (err) {
       console.warn("[StoreEmbeddings] Failed to fetch existing IDs, proceeding to add all documents:", err.message);
-      // Continue with all documents if get fails
       existingIds = [];
     }
 
@@ -141,6 +149,7 @@ export async function storeEmbeddings(docs) {
 }
 
 // Search for similar documents
+// Search for similar documents
 export async function searchSimilar(queryEmbedding, repo, topK = 3) {
   try {
     const collection = await collectionPromise;
@@ -149,7 +158,7 @@ export async function searchSimilar(queryEmbedding, repo, topK = 3) {
       queryEmbeddings: [queryEmbedding],
       nResults: topK,
       where: { repo },
-      distanceMetric : 'cosine'
+      distanceMetric: 'cosine'
     });
 
     if (!result.documents?.[0]?.length) {
@@ -161,7 +170,8 @@ export async function searchSimilar(queryEmbedding, repo, topK = 3) {
     return result.documents[0].map((doc, i) => ({
       file: result.metadatas[0][i].file,
       repo: result.metadatas[0][i].repo,
-      match: doc.slice(0, 400),
+      docId: result.metadatas[0][i].docId, // Include docId to identify chunk
+      match: doc,
     }));
   } catch (err) {
     console.error("[SearchSimilar Error]", err.message);

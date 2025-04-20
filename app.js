@@ -18,6 +18,7 @@ app.post("/analyze", async (req, res) => {
   }
   try {
     const result = await handleIssue(repo, issueTitle, issueBody);
+    console.log(result)
     res.json({ results: result });
   } catch (e) {
     console.error(`[Analyze Error] Repo: ${repo}`, e.message, e.stack);
