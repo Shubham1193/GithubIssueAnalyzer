@@ -59,6 +59,7 @@ export async function listDocuments(page = 1, limit = 20) {
       id,
       file: result.metadatas[i]?.file || "unknown",
       repo: result.metadatas[i]?.repo || "unknown",
+      code: result.metadatas[i]?.code || "no code",
       docId: result.metadatas[i]?.docId || id, // Use stored docId or fall back to id
       summary: result.documents[i] || "No summary",
       embedding: result.embeddings[i]?.slice(0, 10) || [], // Truncate for brevity
@@ -103,7 +104,7 @@ export async function storeEmbeddings(docs) {
 
     // Build document data
     const ids = validDocs.map((d) => d.docId); // Use docId from handleIssue
-    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo, docId: d.docId }));
+    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo, docId: d.docId , code: d.code }));
     const documents = validDocs.map((d) => d.chunk);
     const embeddings = validDocs.map((d) => d.embedding);
 
@@ -148,7 +149,7 @@ export async function storeEmbeddings(docs) {
   }
 }
 
-// Search for similar documents
+
 // Search for similar documents
 export async function searchSimilar(queryEmbedding, repo, topK = 3) {
   try {
@@ -166,10 +167,11 @@ export async function searchSimilar(queryEmbedding, repo, topK = 3) {
       return [];
     }
 
-    console.log(`[SearchSimilar] Found ${result.documents[0].length} similar documents`);
+    // console.log(`[SearchSimilar] Found ${result.documents[0].length} similar documents`);
     return result.documents[0].map((doc, i) => ({
       file: result.metadatas[0][i].file,
       repo: result.metadatas[0][i].repo,
+      code: result.metadatas[0][i].code,
       docId: result.metadatas[0][i].docId, // Include docId to identify chunk
       match: doc,
     }));
