@@ -59,7 +59,6 @@ export async function listDocuments(page = 1, limit = 20) {
       id,
       file: result.metadatas[i]?.file || "unknown",
       repo: result.metadatas[i]?.repo || "unknown",
-      code: result.metadatas[i]?.code || "no code",
       docId: result.metadatas[i]?.docId || id, // Use stored docId or fall back to id
       summary: result.documents[i] || "No summary",
       embedding: result.embeddings[i]?.slice(0, 10) || [], // Truncate for brevity
@@ -84,6 +83,7 @@ export async function listDocuments(page = 1, limit = 20) {
 
 // Store embeddings in ChromaDB
 export async function storeEmbeddings(docs) {
+  console.log(docs)
   try {
     const collection = await collectionPromise;
     console.log(`[StoreEmbeddings] Preparing to store ${docs.length} documents`);
@@ -104,7 +104,7 @@ export async function storeEmbeddings(docs) {
 
     // Build document data
     const ids = validDocs.map((d) => d.docId); // Use docId from handleIssue
-    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo, docId: d.docId , code: d.code }));
+    const metadatas = validDocs.map((d) => ({ file: d.file, repo: d.repo, docId: d.docId }));
     const documents = validDocs.map((d) => d.chunk);
     const embeddings = validDocs.map((d) => d.embedding);
 
