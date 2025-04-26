@@ -23,7 +23,6 @@ When browsing code on GitHub, the extension highlights files, functions, and cod
 ### Prerequisites
 - [Docker](https://www.docker.com/get-started) installed for running the vector database.
 - [Node.js](https://nodejs.org/) (v16 or higher) for the backend.
-- [Google Chrome](https://www.google.com/chrome/) for the extension.
 - A GitHub account with access to the repositories you want to use.
 
 ### Installation
