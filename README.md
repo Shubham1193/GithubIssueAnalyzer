@@ -25,16 +25,16 @@ When you're browsing your code on GitHub, the extension highlights the files, fu
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/your-username/code-issue-context.git
-cd code-issue-context
+cd code-issue-context ```
 
 ### 2. Start Vector db
 ```bash
-docker run -d -p 8000:8000 -v chroma_data:/chroma/.chroma ghcr.io/chroma-core/chroma:latest
+docker run -d -p 8000:8000 -v chroma_data:/chroma/.chroma ghcr.io/chroma-core/chroma:latest ```
 
 ### 3. Start backend
 ```bash
 npm install
-node app.js
+node app.js ```
 
 
 
